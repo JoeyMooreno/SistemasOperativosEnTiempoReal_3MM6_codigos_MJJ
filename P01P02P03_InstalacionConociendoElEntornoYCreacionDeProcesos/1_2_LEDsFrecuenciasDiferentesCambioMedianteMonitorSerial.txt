@@ -1,0 +1,94 @@
+/*
+Programa de dos LEDs con frecuencia independiente
+By MJJH, JJMM y JSZM
+*/
+#if CONFIG_FREERTOS_UNICORE
+static const BaseType_t app_cpu = 0;
+#else
+static const BaseType_t app_cpu = 1;
+#endif
+
+// Definimos los pines de los LEDs
+static const int led1 = 14; // Primer LED
+static const int led2 = 16; // Segundo LED
+
+// Variable global para la frecuencia del LED 1 (inicia en 500 ms)
+volatile int frecuenciaLED1 = 500;
+
+// Tarea: parpadeo del LED 1 con frecuencia actualizable
+void toggleLED1(void *parameter) {
+  while (1) {
+    digitalWrite(led1, HIGH);  // Encender LED 1
+    vTaskDelay(frecuenciaLED1 / portTICK_PERIOD_MS);  // Esperar por la frecuencia actual
+    digitalWrite(led1, LOW);   // Apagar LED 1
+    vTaskDelay(frecuenciaLED1 / portTICK_PERIOD_MS);  // Esperar por la frecuencia actual
+  }
+}
+
+// Tarea: parpadeo del LED 2 con frecuencia fija
+void toggleLED2(void *parameter) {
+  while (1) {
+    digitalWrite(led2, HIGH);  // Encender LED 2
+    vTaskDelay(500 / portTICK_PERIOD_MS);  // Esperar 500 ms
+    digitalWrite(led2, LOW);   // Apagar LED 2
+    vTaskDelay(500 / portTICK_PERIOD_MS);  // Esperar 500 ms
+  }
+}
+
+// Tarea: actualizar la frecuencia del LED 1 desde el monitor serial
+void updateFrequency(void *parameter) {
+  while (1) {
+    if (Serial.available() > 0) {
+      int nuevaFrecuencia = Serial.parseInt();
+      if (nuevaFrecuencia > 0) {
+        frecuenciaLED1 = nuevaFrecuencia;  // Actualizar la frecuencia del LED 1 si el valor es válido
+        Serial.print("Frecuencia del LED 1 actualizada a: ");
+        Serial.println(frecuenciaLED1);
+      }
+    }
+    vTaskDelay(100 / portTICK_PERIOD_MS);  // Revisar el monitor serial cada 100 ms
+  }
+}
+
+void setup() {
+  // Inicializar monitor serial
+  Serial.begin(115200);
+  
+  // Configuración de los GPIOs como salidas
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+
+  // Crear la tarea para el LED 1 con frecuencia actualizable
+  xTaskCreatePinnedToCore(
+      toggleLED1,     // Función que se ejecutará
+      "Toggle LED 1", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      1,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+
+  // Crear la tarea para el LED 2 con frecuencia fija
+  xTaskCreatePinnedToCore(
+      toggleLED2,     // Función que se ejecutará
+      "Toggle LED 2", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      1,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+
+  // Crear la tarea para actualizar la frecuencia del LED 1 desde el monitor serial
+  xTaskCreatePinnedToCore(
+      updateFrequency,     // Función que se ejecutará
+      "Update Frequency",  // Nombre de la tarea
+      1024,                // Tamaño del stack
+      NULL,                // Parámetros
+      1,                   // Prioridad de la tarea
+      NULL,                // Handler de la tarea (no es necesario)
+      app_cpu);            // Núcleo donde se ejecutará la tarea
+}
+
+void loop() {
+  // El loop permanece vacío ya que las tareas controlan los LEDs y la frecuencia.
+}

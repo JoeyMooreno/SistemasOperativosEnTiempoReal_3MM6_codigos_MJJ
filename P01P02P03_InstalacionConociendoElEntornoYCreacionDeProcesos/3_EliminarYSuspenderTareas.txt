@@ -1,0 +1,64 @@
+/*
+Ejercicio 1.5 eliminar y suspender tareas
+By MJJH, JJMM y JSZM
+*/
+#if CONFIG_FREERTOS_UNICORE
+static const BaseType_t app_cpu = 0;
+#else
+static const BaseType_t app_cpu = 1;
+#endif
+
+// Mensajes para UART
+const char msg1[] = "Adios";
+const char msg2[] = "Hola";
+const char msg3[] = "Recurrente";
+
+// Crear tareas en FreeRTOS
+static TaskHandle_t tarea_1 = NULL;
+static TaskHandle_t tarea_2 = NULL;
+static TaskHandle_t tarea_3 = NULL;
+
+/*----------Tareas----------------*/
+
+// Tarea 1: Envia un mensaje y luego se elimina
+void tarea01(void *parameter) {
+  Serial.println(msg1);
+  
+  // Eliminar la tarea una vez que ha sido ejecutada
+  vTaskDelete(NULL); // Elimina la tarea actual
+}
+
+// Tarea 2: Envia un mensaje, se suspende por 2 segundos y se reanuda
+void tarea02(void *parameter) {
+  while(1) {
+    Serial.println(msg2);
+    vTaskDelay(500/ portTICK_PERIOD_MS); 
+
+    // Suspender la tarea
+    vTaskSuspend(NULL); // Se suspende hasta que sea reanudada externamente
+  }
+}
+
+// Tarea 3: Envia un mensaje de manera indefinida con máxima prioridad
+void tarea03(void *parameter) {
+  while(1) {
+    Serial.println(msg3);
+    vTaskDelay(500 / portTICK_PERIOD_MS); 
+  }
+}
+
+void setup() {
+  // Configuración de UART a una velocidad libre (9600 baudios)
+  Serial.begin(9600);
+
+  // Crear las 3 tareas en FreeRTOS
+  xTaskCreatePinnedToCore(tarea01, "Tarea 1", 1024, NULL, 1, &tarea_1, app_cpu); // Tarea 1, prioridad 1
+  xTaskCreatePinnedToCore(tarea02, "Tarea 2", 1024, NULL, 1, &tarea_2, app_cpu); // Tarea 2, prioridad 1
+  xTaskCreatePinnedToCore(tarea03, "Tarea 3", 1024, NULL, 2, &tarea_3, app_cpu); // Tarea 3, prioridad máxima (2)
+}
+
+void loop() {
+  // Reanudar tarea 2 cada 2 segundos
+  vTaskDelay(2000 / portTICK_PERIOD_MS); // Esperar 2 segundos
+  vTaskResume(tarea_2); // Reanudar la tarea 2 después de los 2 segundos
+}

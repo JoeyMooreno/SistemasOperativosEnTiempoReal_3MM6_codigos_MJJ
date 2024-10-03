@@ -1,0 +1,104 @@
+/*
+Programa de dos LEDs con cambio de frecuencia mediante pulsador
+By MJJH, JJMM y JSZM
+*/
+
+#if CONFIG_FREERTOS_UNICORE
+static const BaseType_t app_cpu = 0;
+#else
+static const BaseType_t app_cpu = 1;
+#endif
+
+// Definimos los pines de los LEDs y el pulsador
+static const int led1 = 14; // Primer LED
+static const int led2 = 16; // Segundo LED
+static const int boton = 2; // Pin del pulsador
+
+// Variables globales para las frecuencias
+volatile int frecuenciaLED1 = 250; // Frecuencia inicial del LED 1 (250 ms)
+volatile int frecuenciaLED2 = 250; // Frecuencia inicial del LED 2 (250 ms)
+
+// Estado del pulsador (para detectar cuando se mantiene presionado)
+volatile bool botonPresionado = false;
+
+// Tarea: parpadeo del LED 1 con frecuencia actualizable
+void toggleLED1(void *parameter) {
+  while (1) {
+    digitalWrite(led1, HIGH);  // Encender LED 1
+    vTaskDelay(frecuenciaLED1 / portTICK_PERIOD_MS);  // Esperar según la frecuencia actual
+    digitalWrite(led1, LOW);   // Apagar LED 1
+    vTaskDelay(frecuenciaLED1 / portTICK_PERIOD_MS);  // Esperar según la frecuencia actual
+  }
+}
+
+// Tarea: parpadeo del LED 2 con frecuencia actualizable
+void toggleLED2(void *parameter) {
+  while (1) {
+    digitalWrite(led2, HIGH);  // Encender LED 2
+    vTaskDelay(frecuenciaLED2 / portTICK_PERIOD_MS);  // Esperar según la frecuencia actual
+    digitalWrite(led2, LOW);   // Apagar LED 2
+    vTaskDelay(frecuenciaLED2 / portTICK_PERIOD_MS);  // Esperar según la frecuencia actual
+  }
+}
+
+// Tarea: detectar el estado del pulsador y cambiar frecuencias
+void checkButton(void *parameter) {
+  while (1) {
+    // Leer el estado del botón
+    if (digitalRead(boton) == HIGH && !botonPresionado) {  
+      // Si el pulsador se presiona y no estaba previamente presionado
+      // Si el pulsador se suelta
+      botonPresionado = false;
+      // Restaurar frecuencias iniciales: ambos a 250 ms
+      frecuenciaLED1 = 250;
+      frecuenciaLED2 = 250;
+    } else if (digitalRead(boton) == LOW && botonPresionado) {
+      botonPresionado = true;
+      // Cambiar frecuencias: LED 1 a 1 segundo, LED 2 a 500 ms
+      frecuenciaLED1 = 1000;
+      frecuenciaLED2 = 500;
+    }
+    vTaskDelay(100 / portTICK_PERIOD_MS);  // Revisar el estado del botón cada 100 ms
+  }
+}
+
+void setup() {
+  // Configuración de los GPIOs
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(boton, INPUT_PULLUP);  // Configuramos el botón con resistencia pull-up interna
+
+  // Crear la tarea para el LED 1 con frecuencia actualizable
+  xTaskCreatePinnedToCore(
+      toggleLED1,     // Función que se ejecutará
+      "Toggle LED 1", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      1,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+
+  // Crear la tarea para el LED 2 con frecuencia actualizable
+  xTaskCreatePinnedToCore(
+      toggleLED2,     // Función que se ejecutará
+      "Toggle LED 2", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      1,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+
+  // Crear la tarea para verificar el estado del botón
+  xTaskCreatePinnedToCore(
+      checkButton,    // Función que se ejecutará
+      "Check Button", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      1,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+}
+
+void loop() {
+  // El loop permanece vacío ya que las tareas controlan los LEDs y el pulsador.
+}

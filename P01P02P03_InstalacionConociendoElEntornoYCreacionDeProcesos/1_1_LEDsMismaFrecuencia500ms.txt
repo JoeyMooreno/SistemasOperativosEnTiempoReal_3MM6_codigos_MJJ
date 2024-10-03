@@ -1,0 +1,63 @@
+/*
+Programa de dos leds con misma frecuencia a 500 ms
+By MJJH, JJMM y JSZM
+*/
+#if CONFIG_FREERTOS_UNICORE
+static const BaseType_t app_cpu = 0;
+#else
+static const BaseType_t app_cpu = 1;
+#endif
+
+// Definimos los pines de los LEDs
+static const int led1 = 14; // Primer LED
+static const int led2 = 16; // Segundo LED
+
+// Tarea: parpadeo del LED 1
+void toggleLED1(void *parameter) {
+  while (1) {
+    digitalWrite(led1, HIGH);  // Encender LED 1
+    vTaskDelay(500 / portTICK_PERIOD_MS);  // Esperar 500 ms
+    digitalWrite(led1, LOW);   // Apagar LED 1
+    vTaskDelay(500 / portTICK_PERIOD_MS);  // Esperar 500 ms
+  }
+}
+
+// Tarea: parpadeo del LED 2
+void toggleLED2(void *parameter) {
+  while (1) {
+    digitalWrite(led2, HIGH);  // Encender LED 2
+    vTaskDelay(500 / portTICK_PERIOD_MS);  // Esperar 500 ms
+    digitalWrite(led2, LOW);   // Apagar LED 2
+    vTaskDelay(500 / portTICK_PERIOD_MS);  // Esperar 500 ms
+  }
+}
+
+void setup() {
+  // Configuración de los GPIOs como salidas
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+
+  // Crear la tarea para el LED 1
+  xTaskCreatePinnedToCore(
+      toggleLED1,     // Función que se ejecutará
+      "Toggle LED 1", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      1,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+
+  // Crear la tarea para el LED 2
+  xTaskCreatePinnedToCore(
+      toggleLED2,     // Función que se ejecutará
+      "Toggle LED 2", // Nombre de la tarea
+      1024,           // Tamaño del stack
+      NULL,           // Parámetros
+      2,              // Prioridad de la tarea
+      NULL,           // Handler de la tarea (no es necesario)
+      app_cpu);       // Núcleo donde se ejecutará la tarea
+}
+
+void loop() {
+  // El loop permanece vacío ya que las tareas controlan los LEDs de manera independiente.
+}
